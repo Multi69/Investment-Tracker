@@ -156,11 +156,6 @@ def profit_calculator(assets):
     if percent_fee == 'yes':
         broker_fee = profit * broker_fee
     profit = profit * sold_for - cost_sum - broker_fee
-
-    #days = timecalc(price_array[len(price_array)-1][2],str(dt.date.today()))
-    #if days > 365 and profit > 0:
-    #    profit = profit / 2
-    
     print('Estimated profit: ', profit)
 
 
