@@ -181,11 +181,12 @@ def sell(assets):
         if sorted_assets.iloc[i]['Investment'] == investment_code:
             amount = sorted_assets.iloc[i]['Amount']
             if amount <= sale_amount:
-                change_amount = sorted_assets.iloc[i]['Amount']
+                change_amount = amount
                 sale_amount -= change_amount
                 price_array.append([ change_amount, sorted_assets.iloc[i]['Cost'], sorted_assets.iloc[i]['Date']])
                 #Modifying Spreadsheet
-                sorted_assets.loc[i, ['Amount']] = float(0)
+                sorted_assets = sorted_assets.drop(i)
+                i -= 1
         
             elif amount > sale_amount:
                 change_amount = amount - sale_amount
@@ -194,10 +195,6 @@ def sell(assets):
                 sorted_assets.loc[i, ['Amount']] = change_amount
                 break
     
-    #Scans for any assets with amount 0 and then deletes them
-    for i in range(0, len(sorted_assets) - 1):
-        if sorted_assets.iloc[i]['Amount'] == 0.00:
-            sorted_assets = sorted_assets.drop(i)
     sorted_assets.to_csv('Assets.csv', mode = 'w', header = True, index = False)
 
     #Profit and capital gains calculations
@@ -205,11 +202,11 @@ def sell(assets):
     capital_gains = 0
     profit = 0
 
-    for i in range(0, len(price_array) - 1):
-        cost_sum = price_array[i][0] * price_array[i][1]
-        profit += price_array[i][0] * sold_for
-        temp_var = price_array[i][0] * sold_for
-        days = timecalc(price_array[i][2], str(dt.date.today()))
+    for x in range(0, len(price_array) - 1):
+        cost_sum = price_array[x][0] * price_array[x][1]
+        profit += price_array[x][0] * sold_for
+        temp_var = price_array[x][0] * sold_for
+        days = timecalc(price_array[x][2], str(dt.date.today()))
         
         if days >= 365:
             capital_gains += (temp_var - cost_sum) / 2
@@ -223,15 +220,6 @@ def sell(assets):
 
     print('Profit made: ', profit)
     print('Reported capital gains: ', capital_gains)
-
-
-
-
-
-
-    
- 
-        
 
 
 
