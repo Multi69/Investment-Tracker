@@ -1,3 +1,0 @@
-Calculate Capital Gains
-Test selling function (Do math by hand to double check)
-
