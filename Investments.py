@@ -1,10 +1,40 @@
-#!/usr/bin/env python3
-from calendar import c
-import pandas as pd
-import datetime as dt
-import re
+#! /usr/bin/env python
 
-#Date Calculation
+import sqlite3 as sq
+import datetime as dt
+import numpy as np
+import os
+import random
+
+### SQL ###
+
+exist_boolean = os.path.exists('investments.db')
+if exist_boolean == False:
+    connection = sq.connect('investments.db')
+    cursor = connection.cursor()
+
+    sql_command = """CREATE TABLE investments (
+        investment_number INTEGER PRIMARY KEY,
+        investment_code VARCHAR(3),
+        investment_amount FLOAT,
+        investment_cost FLOAT,
+        date DATE
+    );"""
+
+    cursor.execute(sql_command)
+
+else:
+    connection = sq.connect('investments.db')
+    cursor = connection.cursor()
+
+### FUNCTIONS ###
+
+def help():
+    print('help     | Displays list of commands')
+    print('add      | Adds investment to database')
+    print('remove   | Removes an investment from database using investment key')
+    print('display  | shows all current assets in database')
+    print('exit     | exits program')
 
 def timecalc(from_str, to_str):
     date_from = dt.datetime.strptime(from_str, '%Y-%m-%d')
@@ -12,260 +42,153 @@ def timecalc(from_str, to_str):
     days = (date_to - date_from).days
     return days
 
-#Options
-
-def new():
-    #For adding new investments
-
-    code = input('Investment code: ').upper()
-    amount = input('Amount of investment purchased: ')
-    cost = input('Cost: ')
-    date = input('Date of Purchase (YYYY-M-D): ')
-    temp_data = {'Investment' : code, 'Amount' : float(amount), 'Cost' : float(cost), 'Date' : date}
-
-    #Adding data to csv file
-    temp_df = pd.DataFrame(temp_data, index = [0], columns = ['Investment', 'Amount', 'Cost', 'Date'])
-    temp_df.to_csv('Assets.csv', mode = 'a', header = False, index = False)
-
-
-def help():
-    #Command List
-
-    print('')
-    print('add            | Lets you add an investment')
-    print('exit           | Stops this script')
-    print('assets         | Prints all current assets')
-    print('remove         | Removes an investment')
-    print('modify         | Modifies an investment')
-    print('search         | searchs for and displays specified')
-    print('total          | displays total amount of a specified asset')
-    print('sell           | deletes sold assets and calculates profit / capital gains')
-
-def remove(assets, code, date, cost):
-    #Removes specified row
-
-    investment = assets['Investment']
-    datelist = assets['Date']
-    cost_list = assets['Cost']
-
-    for i in range(0, len(assets)):
-        if investment[i] == code and datelist[i] == date and cost_list[i] == cost:
-            #Removes row in CSV file
-            assets = assets.drop(i)
-            assets.to_csv('Assets.csv', mode = 'w', header = True, index = False)
-        
-
-def modify(assets, code, date, cost, new_amount, new_cost):
-    #For modifying current investments
-    
-    investment = assets['Investment']
-    datelist = assets['Date']
-    cost_list = assets['Cost']
-
-    for i in range(0, len(assets)):
-        if investment[i] == code and datelist[i] == date and cost_list[i] == cost:
-            assets.loc[i, ['Amount']] = new_amount
-            assets.loc[i, ['Cost']] = new_cost
-            assets.to_csv('Assets.csv', mode = 'w', header = True, index = False)
-       
-
-def search(assets):
-    #Searches the CSV for a specified investment
-    
-    search_item = input('Search Query: ')
-    datelist = assets['Date']
-    counter = 0
-    r = re.compile('.*-.*-.*')
-    
-    if r.match(search_item) is not None:
-        print('')
-        print(assets.loc[assets['Date'] == search_item])
-
+def add_investment():
     try:
-        search_item = float(search_item)
+        cursor.execute("SELECT investment_number FROM investments")
+        investment_code = str(input("Investment code: ")).upper()
+        investment_amount = float(input("Investment amount: "))
+        investment_cost = float(input("Cost of investment: "))
+        investment_date = str(input("Date investment was purchased (YYYY-MM-DD): "))
+        
     except:
+        print('Invalid Value')
         pass
 
-    if type(search_item) == float:
-        number_type = input('Amount or Cost?: ').lower()
-        if number_type == 'amount':
-            print(assets.loc[assets['Amount'] == search_item])
-        elif number_type == 'cost':
-            print(assets.loc[assets['Cost'] == search_item])
-        else:
-            print("Didn't type 'cost' or amount'")
-    try:
+    #Generating Random Investment Key
+    key_generated = False
+    match = False
+    data = cursor.fetchall()
+    data = np.array(data, dtype = int).flatten()
+    print(data)
+        
+    while key_generated == False:
+        print("Generating investment key...")
+        investment_key = random.randint(1, len(data)*1000)
 
-        if r.match(search_item) is None and type(search_item) == str:
-            search_item = search_item.upper()
-            print('')
-            print(assets.loc[assets['Investment'] == search_item])
+        for row in range(0, len(data)):
+            key_check = int(data[row])
+            if key_check == investment_key:
+                match = True
+
+            if match != True:
+                key_generated = True
+
+    #Inserting Data
+    print('Inserting into database...')
+    cursor.execute('SELECT * FROM investments')
+    cursor.execute('INSERT INTO investments VALUES(?, ?, ?, ?, ?)', (investment_key, investment_code, investment_amount, investment_cost, investment_date))
+    connection.commit()
+    
+
+def display():
+    cursor.execute("SELECT * FROM investments")
+    sql_length = cursor.fetchall()
+    print("Key | Code | Amount | Cost | Date")
+    for row in sql_length:
+        print(row)
+
+
+def remove():
+    i = 1
+    while i == 1:
+        try:
+            investment_key = int(input("Investment key: "))
+            confirmation = str(input("Is this correct? (Y/N): ")).upper()
+            if confirmation == "Y":
+                i = 0
+        except:
+            print("Invalid Value")
+    investment_key = str(investment_key)
+    cursor.execute("DELETE FROM investments WHERE investment_number=?", (investment_key,))
+    connection.commit()
+ 
+def sell():
+    try:
+        investment_code = str(input('Investment code:')).upper()
+        sold_amount = float(input('Amount sold:'))
+        sold_for = float(input('Sold for:'))
+        date_sold = input("Date sold (YYYY-MM-DD): ")
+        fee_type = str(input('Is the broker fee a percentage or fixed?: ')).lower()
     except:
+        print('Invalid Value')
         pass
-
-def total(assets):
-    #Returns total amount of an asset
-    investment = input('Investment Code: ').upper()
-    total_amount = 0
-
-    for i in range(0, len(assets)):
-        if assets.iloc[i]['Investment'] == investment:
-            total_amount += assets.iloc[i]['Amount']
-        
-    print(total_amount)
-
-def profit_calculator(assets):
-    #Calculates profit
-
-    investment = input('Investment Code: ').upper()
-    sale_amount = float(input('Amount: '))
-    sold_for = float(input('Amount Sold for (per investment):'))
-    percent_fee = str(input('Is the broker fee a percentage? (yes or no): ')).lower()
-    profit = float(0)
-    total_amount = float(0)
-    sorted = assets.sort_values(by = 'Date')
-    price_array = []
     
-    #broker fee
-    if percent_fee == 'yes':
-        broker_fee = float(input('Enter fee percentage as a decimal: '))
-    else:
-        broker_fee = float(input('Enter broker fee: '))
+    cursor.execute('SELECT * FROM investments ORDER BY date DESC')
+    data = cursor.fetchall()
 
-    #Calculates asset data for calculation
-    for i in range(0, len(sorted) - 1):
-        if sorted.iloc[i]['Investment'] == investment:
-            if sorted.iloc[i]['Amount'] >= sale_amount:
-                total_amount = sale_amount
-                price_array.append([total_amount, sorted.iloc[i]['Cost'], sorted.iloc[i]['Date']])
-                i = len(sorted) + 1
+    data_array = np.array(data)
+    data_array = data_array[data_array[:, 4].argsort()]
+    days_array = []
+    sell_array = np.array([['Amount', 'Cost']])
+    row = 0
 
-            elif sorted.iloc[i]['Amount'] < sale_amount:
-                total_amount = sorted.iloc[i]['Amount']
-                sale_amount = sale_amount - sorted.iloc[i]['Amount']
-                price_array.append([total_amount, sorted.iloc[i]['Cost'], sorted.iloc[i]['Date']])
+    for row in range(0 , len(data_array)):
+        if str(data_array[row][1]) == str(investment_code):
+            if float(data_array[row][2]) <= sold_amount:
+                temp_array = np.array([[data_array[row][2], data_array[row][3]]])
+                sell_array = np.append(sell_array, temp_array, axis=0)
+                days_array = np.append(days_array, timecalc(data_array[row][4], date_sold))
+                sold_amount -= float(data_array[row][2])
+                to_be_deleted = str(data_array[row][0])
+                cursor.execute("DELETE FROM investments WHERE investment_number=?", (to_be_deleted,))
+            else:
+                temp_array = np.array([[data_array[row][2], data_array[row][3]]])
+                sell_array = np.append(sell_array, temp_array, axis=0)
+                days_array = np.append(days_array, timecalc(data_array[row][4], date_sold))
+                cursor.execute("UPDATE investments SET investment_amount=? WHERE investment_number=?", ((float(data_array[row][2]) - sold_amount), str(data_array[row][0])))
+    connection.commit()
 
-     #Actually calculates the profit of the sale   
-    cost_sum = 0
-    for i in range(0 , len(price_array) - 1):
-        #'cost_sum' is the total cost of the assets being sold
-        cost_sum += price_array[i][0]*price_array[i][1]
-        #in this case variable 'profit' is just the total amount of stock sold
-        profit += price_array[i][0]
+    total_cost = 0
+    total_sold = 0
+    tax = 0
+    print(sell_array)
 
-    if percent_fee == 'yes':
-        broker_fee = profit * broker_fee
-    profit = profit * sold_for - cost_sum - broker_fee
-    print('Estimated profit: ', profit)
-
-
-def sell(assets):
-    #Script to record the selling of assets and update the CSV sheet
-
-    investment_code = input('Investment code: ').upper()
-    sale_amount = float(input('Amount Sold: '))
-    sold_for = float(input('Sold for (Per investment): '))
-    percentage_fee = str(input('Is the broker fee a percentage? (yes or no): ')).lower
-    change_amount = float(0)
-    sorted_assets = assets.sort_values(by = 'Date')
-    price_array = []
-
-    #broker fee calculation
-    if percentage_fee == 'yes':
-        broker_fee = input('Enter broker fee percentage as a decimal: ')
-    else:
-        broker_fee = float(input('Enter broker fee: '))
-    
-    #Code that collects data and changes spreadsheet
-    for i in range(0, len(sorted_assets) - 1):
-        if sorted_assets.iloc[i]['Investment'] == investment_code:
-            amount = sorted_assets.iloc[i]['Amount']
-            if amount <= sale_amount:
-                change_amount = amount
-                sale_amount -= change_amount
-                price_array.append([ change_amount, sorted_assets.iloc[i]['Cost'], sorted_assets.iloc[i]['Date']])
-                #Modifying Spreadsheet
-                sorted_assets = sorted_assets.drop(i)
-                i -= 1
+    for i in range(1, len(sell_array)):
         
-            elif amount > sale_amount:
-                change_amount = amount - sale_amount
-                price_array.append([sale_amount, sorted_assets.iloc[i]['Cost'], sorted_assets.iloc[i]['Date']])
-                #modifying Spreadsheet
-                sorted_assets.loc[i, ['Amount']] = change_amount
-                break
-    
-    sorted_assets.to_csv('Assets.csv', mode = 'w', header = True, index = False)
+        amount = float(sell_array[i][0])
+        cost = float(sell_array[i][1])
 
-    #Profit and capital gains calculations
-    cost_sum = 0
-    capital_gains = 0
-    profit = 0
+        total_cost += amount * cost
+        total_sold += amount * sold_for
 
-    for x in range(0, len(price_array) - 1):
-        cost_sum = price_array[x][0] * price_array[x][1]
-        profit += price_array[x][0] * sold_for
-        temp_var = price_array[x][0] * sold_for
-        days = timecalc(price_array[x][2], str(dt.date.today()))
-        
-        if days >= 365:
-            capital_gains += (temp_var - cost_sum) / 2
+        if int(days_array[i - 1]) >= 365:
+            tax += (amount * sold_for - amount * cost) * 0.5
         else:
-            capital_gains += temp_var - cost_sum
+            tax += amount * sold_for - amount * cost
+        print("days ", days_array[i - 1], "total cost ", total_cost, "total sold ", total_sold)
+
+    if fee_type == 'percentage':
+        fee = float(input("Fee percentage (decimal): "))
+        profit = total_sold - total_cost - (total_sold * fee)
+    elif fee_type == 'fixed':
+        fee = float(input("Dollar value of fee: "))
+        profit = total_sold - total_cost - fee
+    else:
+        print("Invalid fee type. Assuming fee = $0...")
+        profit = total_sold - total_cost
+    print('Profit: ', profit)
+    print('Tax record: ', tax)  
     
-    if percentage_fee == 'yes':
-        broker_fee = broker_fee * profit
         
-    profit = profit - cost_sum - broker_fee
 
-    print('Profit made: ', profit)
-    print('Reported capital gains: ', capital_gains)
+### MENU ###
 
+loop = True
 
+while loop == True:
+    user_command = input("Command: ").lower()
 
-#Starting prompt
-i = 1
-print('\nWelcome to your investment storage and capital gains tracker!')
-print('Type "help" to list commands')
-while i == 1:
-    #Reloads / Loads CSV Data or creates a new csv if one doesn't already exist
-    try:
-        assets = pd.read_csv('Assets.csv')
-    except:
-        open('Assets.csv', 'w')
-        assets = pd.DataFrame(columns = ['Investment', 'Amount', 'Cost', 'Date'])
-        assets.to_csv('Assets.csv', mode = 'w', header = True, index = False)
-
-    print('')
-    option = input('What would you like to do?: ').lower()
-    if option == 'exit':
+    if user_command == 'add':
+        add_investment()
+    if user_command == 'exit':
+        connection.close()
         exit()
-    if option == 'add':
-        new()
-    if option == 'assets':
-        print(assets)
-        print('\nTotal Investments:', len(assets))
-    if option == 'help':
+    if user_command == 'display':
+        display()
+    if user_command == 'remove':
+        remove()
+    if user_command == 'sell':
+        sell()
+    if user_command == 'help':
         help()
-    if option == 'remove':
-        code = input('Investment code: ').upper()
-        date = input('Investment date (YYYY-M-D): ')
-        cost = float(input('Cost of investment: '))
-        remove(assets, code, date, cost)
-    if option == 'modify':
-        code = input('Investment code: ').upper()
-        date = input('Investment date (YYYY-M-D): ')
-        cost = float(input('Original Cost: '))
-        new_amount = input('New Investment Amount: ')
-        new_cost = input('New Investment Cost: ')
-        modify(assets, code, date, cost, new_amount, new_cost)
-    if option == 'search':
-        search(assets)
-    if option == 'total':
-        total(assets)
-    if option == 'profit calculator':
-        profit_calculator(assets)
-    if option == 'sell':
-        sell(assets)
-    
-    
+        
