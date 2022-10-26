@@ -63,7 +63,7 @@ def add_investment():
         
     while key_generated == False:
         print("Generating investment key...")
-        investment_key = random.randint(1, len(data)*1000)
+        investment_key = random.randint(1, 10000)
 
         for row in range(0, len(data)):
             key_check = int(data[row])
