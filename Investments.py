@@ -73,7 +73,9 @@ def add_investment():
 
                 if match != True:
                     key_generated = True
-
+        else:
+            key_generated = True
+            
     #Inserting Data
     print('Inserting into database...')
     cursor.execute('SELECT * FROM investments')
