@@ -65,13 +65,14 @@ def add_investment():
         print("Generating investment key...")
         investment_key = random.randint(1, 10000)
 
-        for row in range(0, len(data)):
-            key_check = int(data[row])
-            if key_check == investment_key:
-                match = True
+        if len(data) > 0:
+            for row in range(0, len(data)):
+                key_check = int(data[row])
+                if key_check == investment_key:
+                    match = True
 
-            if match != True:
-                key_generated = True
+                if match != True:
+                    key_generated = True
 
     #Inserting Data
     print('Inserting into database...')
